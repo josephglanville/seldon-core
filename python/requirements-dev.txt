@@ -8,7 +8,7 @@ pytest-cov==2.8.1
 tox<4.0.0
 
 # 2nd lvl dep on cov required to avoid sqllite dep
-coverage==4.5.4
+coverage==5.1
 
 # Used in serving_test_gen
 pandas==1.0.1
