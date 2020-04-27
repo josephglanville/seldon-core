@@ -44,6 +44,7 @@ import (
 
 	"encoding/json"
 
+	contour "github.com/projectcontour/contour/apis/projectcontour/v1"
 	istio_networking "istio.io/api/networking/v1alpha3"
 	istio "istio.io/client-go/pkg/apis/networking/v1alpha3"
 	appsv1 "k8s.io/api/apps/v1"
@@ -1595,6 +1596,27 @@ func (r *SeldonDeploymentReconciler) SetupWithManager(mgr ctrl.Manager, name str
 			Owns(&appsv1.Deployment{}).
 			Owns(&corev1.Service{}).
 			Owns(&istio.VirtualService{}).
+			Complete(r)
+	} else if GetEnv(ENV_CONTOUR_ENABLED, "false") == "true" {
+		if err := mgr.GetFieldIndexer().IndexField(&contour.HTTPProxy{}, ownerKey, func(rawObj runtime.Object) []string {
+			httpProxy := rawObj.(*contour.HTTPProxy)
+			owner := metav1.GetControllerOf(httpProxy)
+			if owner == nil {
+				return nil
+			}
+			if owner.APIVersion != apiGVStr || owner.Kind != "SeldonDeployment" {
+				return nil
+			}
+			return []string{owner.Name}
+		}); err != nil {
+			return err
+		}
+		return ctrl.NewControllerManagedBy(mgr).
+			Named(name).
+			For(&machinelearningv1.SeldonDeployment{}).
+			Owns(&appsv1.Deployment{}).
+			Owns(&corev1.Service{}).
+			Owns(&contour.HTTPProxy{}).
 			Complete(r)
 	} else {
 		return ctrl.NewControllerManagedBy(mgr).
