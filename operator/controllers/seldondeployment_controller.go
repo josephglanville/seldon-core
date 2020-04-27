@@ -81,6 +81,7 @@ type components struct {
 	hpas                  []*autoscaling.HorizontalPodAutoscaler
 	virtualServices       []*istio.VirtualService
 	destinationRules      []*istio.DestinationRule
+	httpProxies           []*contour.HTTPProxy
 	defaultDeploymentName string
 	addressable           *machinelearningv1.SeldonAddressable
 }
@@ -402,6 +403,13 @@ func (r *SeldonDeploymentReconciler) createComponents(mlDep *machinelearningv1.S
 		}
 		c.virtualServices = append(c.virtualServices, vsvcs...)
 		c.destinationRules = append(c.destinationRules, dstRule...)
+	}
+	if GetEnv(ENV_CONTOUR_ENABLED, "false") == "true" {
+		httpProxies, err := createContourResources(mlDep, seldonId, namespace, externalPorts, httpAllowed, grpcAllowed)
+		if err != nil {
+			return nil, err
+		}
+		c.httpProxies = append(c.httpProxies, httpProxies...)
 	}
 	return &c, nil
 }

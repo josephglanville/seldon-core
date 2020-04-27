@@ -22,6 +22,7 @@ import (
 
 	"github.com/seldonio/seldon-core/operator/constants"
 
+	contour "github.com/projectcontour/contour/apis/projectcontour/v1"
 	machinelearningv1 "github.com/seldonio/seldon-core/operator/apis/machinelearning.seldon.io/v1"
 	machinelearningv1alpha2 "github.com/seldonio/seldon-core/operator/apis/machinelearning.seldon.io/v1alpha2"
 	machinelearningv1alpha3 "github.com/seldonio/seldon-core/operator/apis/machinelearning.seldon.io/v1alpha3"
@@ -55,6 +56,9 @@ func init() {
 	_ = v1beta1.AddToScheme(scheme)
 	if controllers.GetEnv(controllers.ENV_ISTIO_ENABLED, "false") == "true" {
 		_ = istio.AddToScheme(scheme)
+	}
+	if controllers.GetEnv(controllers.ENV_CONTOUR_ENABLED, "false") == "true" {
+		contour.AddKnownTypes(scheme)
 	}
 	// +kubebuilder:scaffold:scheme
 }
