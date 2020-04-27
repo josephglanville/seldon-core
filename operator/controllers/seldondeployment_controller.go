@@ -24,6 +24,7 @@ import (
 	"strconv"
 	"strings"
 
+	"github.com/go-logr/logr"
 	"github.com/seldonio/seldon-core/operator/constants"
 	"github.com/seldonio/seldon-core/operator/utils"
 	"k8s.io/apimachinery/pkg/api/equality"
@@ -33,9 +34,6 @@ import (
 	"k8s.io/apimachinery/pkg/util/intstr"
 	"k8s.io/client-go/tools/record"
 	"knative.dev/pkg/kmp"
-	"sigs.k8s.io/controller-runtime/pkg/controller/controllerutil"
-
-	"github.com/go-logr/logr"
 	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 
@@ -703,121 +701,6 @@ func getPort(name string, ports []corev1.ContainerPort) *corev1.ContainerPort {
 }
 
 // Create Services specified in components.
-func (r *SeldonDeploymentReconciler) createIstioServices(components *components, instance *machinelearningv1.SeldonDeployment, log logr.Logger) (bool, error) {
-	ready := true
-	for _, svc := range components.virtualServices {
-		if err := controllerutil.SetControllerReference(instance, svc, r.Scheme); err != nil {
-			return ready, err
-		}
-		found := &istio.VirtualService{}
-		err := r.Get(context.TODO(), types.NamespacedName{Name: svc.Name, Namespace: svc.Namespace}, found)
-		if err != nil && errors.IsNotFound(err) {
-			ready = false
-			log.Info("Creating Virtual Service", "namespace", svc.Namespace, "name", svc.Name)
-			err = r.Create(context.TODO(), svc)
-			if err != nil {
-				return ready, err
-			}
-			r.Recorder.Eventf(instance, corev1.EventTypeNormal, constants.EventsCreateVirtualService, "Created VirtualService %q", svc.GetName())
-		} else if err != nil {
-			return ready, err
-		} else {
-			// Update the found object and write the result back if there are any changes
-			if !equality.Semantic.DeepEqual(svc.Spec, found.Spec) {
-				desiredSvc := found.DeepCopy()
-				found.Spec = svc.Spec
-				log.Info("Updating Virtual Service", "namespace", svc.Namespace, "name", svc.Name)
-				err = r.Update(context.TODO(), found)
-				if err != nil {
-					return ready, err
-				}
-
-				// Check if what came back from server modulo the defaults applied by k8s is the same or not
-				if !equality.Semantic.DeepEqual(desiredSvc.Spec, found.Spec) {
-					ready = false
-					r.Recorder.Eventf(instance, corev1.EventTypeNormal, constants.EventsUpdateVirtualService, "Updated VirtualService %q", svc.GetName())
-					//For debugging we will show the difference
-					diff, err := kmp.SafeDiff(desiredSvc.Spec, found.Spec)
-					if err != nil {
-						log.Error(err, "Failed to diff")
-					} else {
-						log.Info(fmt.Sprintf("Difference in VSVC: %v", diff))
-					}
-				} else {
-					log.Info("The VSVC are the same - api server defaults ignored")
-				}
-			} else {
-				log.Info("Found identical Virtual Service", "namespace", found.Namespace, "name", found.Name)
-			}
-		}
-	}
-
-	for _, drule := range components.destinationRules {
-
-		if err := controllerutil.SetControllerReference(instance, drule, r.Scheme); err != nil {
-			return ready, err
-		}
-		found := &istio.DestinationRule{}
-		err := r.Get(context.TODO(), types.NamespacedName{Name: drule.Name, Namespace: drule.Namespace}, found)
-		if err != nil && errors.IsNotFound(err) {
-			ready = false
-			log.Info("Creating Istio Destination Rule", "namespace", drule.Namespace, "name", drule.Name)
-			err = r.Create(context.TODO(), drule)
-			if err != nil {
-				return ready, err
-			}
-			r.Recorder.Eventf(instance, corev1.EventTypeNormal, constants.EventsCreateDestinationRule, "Created DestinationRule %q", drule.GetName())
-		} else if err != nil {
-			return ready, err
-		} else {
-			// Update the found object and write the result back if there are any changes
-			if !equality.Semantic.DeepEqual(drule.Spec, found.Spec) {
-				desiredDrule := found.DeepCopy()
-				found.Spec = drule.Spec
-				log.Info("Updating Istio Destination Rule", "namespace", drule.Namespace, "name", drule.Name)
-				err = r.Update(context.TODO(), found)
-				if err != nil {
-					return ready, err
-				}
-
-				// Check if what came back from server modulo the defaults applied by k8s is the same or not
-				if !equality.Semantic.DeepEqual(desiredDrule.Spec, found.Spec) {
-					ready = false
-					r.Recorder.Eventf(instance, corev1.EventTypeNormal, constants.EventsUpdateDestinationRule, "Updated DestinationRule %q", drule.GetName())
-					//For debugging we will show the difference
-					diff, err := kmp.SafeDiff(desiredDrule.Spec, found.Spec)
-					if err != nil {
-						log.Error(err, "Failed to diff")
-					} else {
-						log.Info(fmt.Sprintf("Difference in Destination Rules: %v", diff))
-					}
-				} else {
-					log.Info("The Destination Rules are the same - api server defaults ignored")
-				}
-			} else {
-				log.Info("Found identical Istio Destination Rule", "namespace", found.Namespace, "name", found.Name)
-			}
-		}
-
-	}
-
-	//Cleanup unused VirtualService. This should usually only happen on Operator upgrades where there is a breaking change to the names of the VirtualServices created
-	//Only run if we have virtualservices to create - implies we are running with istio active
-	if len(components.virtualServices) > 0 && ready {
-		cleaner := ResourceCleaner{instance: instance, client: r, virtualServices: components.virtualServices, logger: r.Log}
-		deleted, err := cleaner.cleanUnusedVirtualServices()
-		if err != nil {
-			return ready, err
-		}
-		for _, vsvcDeleted := range deleted {
-			r.Recorder.Eventf(instance, corev1.EventTypeNormal, constants.EventsDeleteVirtualService, "Delete VirtualService %q", vsvcDeleted.GetName())
-		}
-	}
-
-	return ready, nil
-}
-
-// Create Services specified in components.
 func (r *SeldonDeploymentReconciler) createServices(components *components, instance *machinelearningv1.SeldonDeployment, all bool, log logr.Logger) (bool, error) {
 	ready := true
 	for _, svc := range components.services {
@@ -1080,6 +963,11 @@ func (r *SeldonDeploymentReconciler) completeServiceCreation(instance *machinele
 	}
 
 	_, err = r.createIstioServices(components, instance, log)
+	if err != nil {
+		return err
+	}
+
+	_, err = r.createContourServices(components, instance, log)
 	if err != nil {
 		return err
 	}

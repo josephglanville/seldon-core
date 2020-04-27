@@ -181,7 +181,7 @@ func createExplainer(r *SeldonDeploymentReconciler, mlDep *machinelearningv1.Sel
 			c.virtualServices = append(c.virtualServices, vsvcs...)
 			c.destinationRules = append(c.destinationRules, dstRule...)
 		}
-		if GetEnv(ENV_ISTIO_ENABLED, "false") == "true" {
+		if GetEnv(ENV_CONTOUR_ENABLED, "false") == "true" {
 			httpProxies := createExplainerContourResources(eSvcName, p, mlDep, seldonId, getNamespace(mlDep), httpPort, grpcPort)
 			c.httpProxies = append(c.httpProxies, httpProxies...)
 		}

@@ -2,6 +2,7 @@ package controllers
 
 import (
 	"context"
+	contour "github.com/projectcontour/contour/apis/projectcontour/v1"
 
 	"github.com/go-logr/logr"
 	machinelearningv1 "github.com/seldonio/seldon-core/operator/apis/machinelearning.seldon.io/v1"
@@ -14,6 +15,7 @@ type ResourceCleaner struct {
 	instance        *machinelearningv1.SeldonDeployment
 	client          client.Client
 	virtualServices []*istio.VirtualService
+	httpProxies     []*contour.HTTPProxy
 	logger          logr.Logger
 }
 
@@ -33,8 +35,33 @@ func (r *ResourceCleaner) cleanUnusedVirtualServices() ([]*istio.VirtualService,
 				}
 				if !found {
 					r.logger.Info("Will delete VirtualService", "name", vsvc.Name, "namespace", vsvc.Namespace)
-					r.client.Delete(context.Background(), &vsvc, client.PropagationPolicy(metav1.DeletePropagationForeground))
+					_ = r.client.Delete(context.Background(), &vsvc, client.PropagationPolicy(metav1.DeletePropagationForeground))
 					deleted = append(deleted, vsvc.DeepCopy())
+				}
+			}
+		}
+	}
+	return deleted, err
+}
+
+func (r *ResourceCleaner) cleanUnusedHTTPProxies() ([]*contour.HTTPProxy, error) {
+	deleted := []*contour.HTTPProxy{}
+	httpProxyList := &contour.HTTPProxyList{}
+	err := r.client.List(context.Background(), httpProxyList, &client.ListOptions{Namespace: r.instance.Namespace})
+	for _, httpProxy := range httpProxyList.Items {
+		for _, ownerRef := range httpProxy.OwnerReferences {
+			if ownerRef.Name == r.instance.Name {
+				found := false
+				for _, expectedVsvc := range r.virtualServices {
+					if expectedVsvc.Name == httpProxy.Name {
+						found = true
+						break
+					}
+				}
+				if !found {
+					r.logger.Info("Will delete HTTPProxy", "name", httpProxy.Name, "namespace", httpProxy.Namespace)
+					_ = r.client.Delete(context.Background(), &httpProxy, client.PropagationPolicy(metav1.DeletePropagationForeground))
+					deleted = append(deleted, httpProxy.DeepCopy())
 				}
 			}
 		}
