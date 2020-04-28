@@ -17,6 +17,8 @@ import (
 )
 
 const (
+	ANNOTATION_CONTOUR_PROTOCOL_H2 = "projectcontour.io/upstream-protocol.h2"
+
 	ENV_CONTOUR_ENABLED = "CONTOUR_ENABLED"
 	ENV_CONTOUR_BASE_HOST = "CONTOUR_BASE_HOST"
 )
@@ -43,7 +45,9 @@ func createContourResources(mlDep *v1.SeldonDeployment,
 			},
 			// TODO(jpg): Need to build this up from the list of predictors
 			Routes: []contour.Route{
+				{
 
+				},
 			},
 		},
 	}

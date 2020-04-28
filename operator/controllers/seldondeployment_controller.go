@@ -443,14 +443,18 @@ func createPredictorService(pSvcName string, seldonId string, p *machinelearning
 		psvc.Spec.Ports = append(psvc.Spec.Ports, corev1.ServicePort{Protocol: corev1.ProtocolTCP, Port: int32(engine_grpc_port), TargetPort: intstr.FromInt(engine_grpc_port), Name: "grpc"})
 	}
 
+	psvc.Annotations = make(map[string]string)
 	if GetEnv("AMBASSADOR_ENABLED", "false") == "true" {
-		psvc.Annotations = make(map[string]string)
 		//Create top level Service
 		ambassadorConfig, err := getAmbassadorConfigs(mlDep, p, pSvcName, engine_http_port, engine_grpc_port, isExplainer)
 		if err != nil {
 			return nil, err
 		}
 		psvc.Annotations[AMBASSADOR_ANNOTATION] = ambassadorConfig
+	}
+	// If Contour is enabled and this is a GRPC service then we need to mark the upstream protocol as h2
+	if GetEnv(ENV_CONTOUR_ENABLED, "false") == "true" && engine_grpc_port != 0 && len(psvc.Spec.Ports) < 2 {
+		psvc.Annotations[ANNOTATION_CONTOUR_PROTOCOL_H2] = fmt.Sprintf("%d", engine_grpc_port)
 	}
 
 	if getAnnotation(mlDep, machinelearningv1.ANNOTATION_HEADLESS_SVC, "false") != "false" {
