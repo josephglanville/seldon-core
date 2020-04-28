@@ -7,7 +7,6 @@ require (
 	github.com/go-logr/logr v0.1.0
 	github.com/gogo/protobuf v1.3.1
 	github.com/google/go-cmp v0.4.0
-	github.com/gophercloud/gophercloud v0.4.0 // indirect
 	github.com/onsi/ginkgo v1.12.0
 	github.com/onsi/gomega v1.8.1
 	github.com/projectcontour/contour v1.4.0

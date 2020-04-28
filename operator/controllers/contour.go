@@ -10,6 +10,7 @@ import (
 	v13 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/equality"
 	"k8s.io/apimachinery/pkg/api/errors"
+	v12 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	types2 "k8s.io/apimachinery/pkg/types"
 	"knative.dev/pkg/kmp"
 	"sigs.k8s.io/controller-runtime/pkg/controller/controllerutil"
@@ -17,6 +18,7 @@ import (
 
 const (
 	ENV_CONTOUR_ENABLED = "CONTOUR_ENABLED"
+	ENV_CONTOUR_BASE_HOST = "CONTOUR_BASE_HOST"
 )
 
 func createContourResources(mlDep *v1.SeldonDeployment,
@@ -25,16 +27,63 @@ func createContourResources(mlDep *v1.SeldonDeployment,
 	ports []httpGrpcPorts,
 	httpAllowed bool,
 	grpcAllowed bool) ([]*contour.HTTPProxy, error) {
-	return nil, nil
+
+
+	contourBaseHost := GetEnv(ENV_CONTOUR_BASE_HOST, ".")
+
+	httpProxy := &contour.HTTPProxy{
+		ObjectMeta: v12.ObjectMeta{
+			Name:      seldonId + "-http",
+			Namespace: namespace,
+		},
+		Spec: contour.HTTPProxySpec{
+			VirtualHost: &contour.VirtualHost{
+				Fqdn: fmt.Sprintf("%s.%s", mlDep.Name, contourBaseHost), // TODO(jpg) is this good enough?
+				TLS: nil, // TODO(jpg) look into TLS stuffs
+			},
+			// TODO(jpg): Need to build this up from the list of predictors
+			Routes: []contour.Route{
+
+			},
+		},
+	}
+
+	httpProxies := []*contour.HTTPProxy{httpProxy}
+
+	return httpProxies, nil
 }
 
+// TODO(jpg): Look at entire thing to understand wtf to do here
+// Can most likely create a shared function called by this and the predictor version
 func createExplainerContourResources(pSvcName string, p *v1.PredictorSpec,
 	mlDep *v1.SeldonDeployment,
 	seldonId string,
 	namespace string,
-	engine_http_port int,
-	engine_grpc_port int) []*contour.HTTPProxy {
-	return nil
+	engineHttpPort int,
+	engineGrpcPort int) []*contour.HTTPProxy {
+
+	contourBaseHost := GetEnv(ENV_CONTOUR_BASE_HOST, ".")
+
+	httpProxy := &contour.HTTPProxy{
+		ObjectMeta: v12.ObjectMeta{
+			Name:      seldonId + "-http",
+			Namespace: namespace,
+		},
+		Spec: contour.HTTPProxySpec{
+			VirtualHost: &contour.VirtualHost{
+				Fqdn: fmt.Sprintf("%s.%s", mlDep.Name, contourBaseHost), // TODO(jpg) is this good enough?
+				TLS: nil, // TODO(jpg) look into TLS stuffs
+			},
+			// TODO(jpg): Need to build this up from the list of predictors
+			Routes: []contour.Route{
+
+			},
+		},
+	}
+
+	httpProxies := []*contour.HTTPProxy{httpProxy}
+
+	return httpProxies
 }
 
 func (r *SeldonDeploymentReconciler) createContourServices(components *components, instance *v1.SeldonDeployment, log logr.Logger) (bool, error) {
