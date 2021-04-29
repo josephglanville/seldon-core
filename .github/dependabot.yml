@@ -1,0 +1,64 @@
+version: 2
+updates:
+- package-ecosystem: pip
+  directory: "/python"
+  schedule:
+    interval: weekly
+  open-pull-requests-limit: 10
+  ignore:
+  - dependency-name: flake8
+    versions:
+    - 3.8.4
+    - 3.9.0
+  - dependency-name: pandas
+    versions:
+    - 1.2.1
+    - 1.2.2
+    - 1.2.3
+  - dependency-name: pillow
+    versions:
+    - 8.1.0
+    - 8.1.2
+  - dependency-name: coverage
+    versions:
+    - 5.3.1
+    - "5.4"
+  - dependency-name: pytest
+    versions:
+    - 6.2.1
+    - 6.2.2
+  - dependency-name: pip-licenses
+    versions:
+    - 3.3.0
+- package-ecosystem: maven
+  directory: "/engine"
+  schedule:
+    interval: weekly
+  open-pull-requests-limit: 10
+  ignore:
+  - dependency-name: org.springframework.boot:spring-boot-starter-parent
+    versions:
+    - 2.4.2
+    - 2.4.3
+    - 2.4.4
+  - dependency-name: org.checkerframework:checker-qual
+    versions:
+    - 3.10.0
+    - 3.11.0
+    - 3.9.1
+  - dependency-name: io.kubernetes:client-java-proto
+    versions:
+    - 11.0.0
+    - 11.0.1
+  - dependency-name: io.jaegertracing:jaeger-client
+    versions:
+    - 1.5.0
+  - dependency-name: com.fasterxml.jackson.core:jackson-annotations
+    versions:
+    - 2.11.0
+  - dependency-name: com.fasterxml.jackson.core:jackson-databind
+    versions:
+    - 2.11.0
+  - dependency-name: com.fasterxml.jackson.core:jackson-core
+    versions:
+    - 2.11.0
